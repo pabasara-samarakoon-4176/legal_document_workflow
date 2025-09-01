@@ -1,0 +1,11 @@
+llama-index-core
+llama-index-readers-file
+llama-index-llms-openai
+llama-index-embeddings-openai
+llama-index-vector-stores-chroma
+pypdf
+python-dotenv
+chromadb
+asyncio
+llama-index
+llama-index-utils-workflow
