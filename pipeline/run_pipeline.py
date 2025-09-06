@@ -23,4 +23,4 @@ job = aiplatform.PipelineJob(
 )
 
 # Important: run with the pipeline runner SA
-job.run(service_account=SERVICE_ACCOUNT, sync=True)
+job.run(sync=True)
