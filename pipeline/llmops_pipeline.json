@@ -1,0 +1,429 @@
+{
+  "components": {
+    "comp-condition-1": {
+      "dag": {
+        "tasks": {
+          "deploy-model": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-deploy-model"
+            },
+            "inputs": {
+              "artifacts": {
+                "model_artifact": {
+                  "componentInputArtifact": "pipelinechannel--fine-tune-llm-model_output"
+                }
+              },
+              "parameters": {
+                "deploy": {
+                  "runtimeValue": {
+                    "constant": true
+                  }
+                },
+                "project": {
+                  "componentInputParameter": "pipelinechannel--project"
+                },
+                "region": {
+                  "componentInputParameter": "pipelinechannel--region"
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "deploy-model"
+            }
+          }
+        }
+      },
+      "inputDefinitions": {
+        "artifacts": {
+          "pipelinechannel--fine-tune-llm-model_output": {
+            "artifactType": {
+              "schemaTitle": "system.Model",
+              "schemaVersion": "0.0.1"
+            }
+          }
+        },
+        "parameters": {
+          "pipelinechannel--deploy_threshold": {
+            "parameterType": "NUMBER_DOUBLE"
+          },
+          "pipelinechannel--evaluate-llm-Output": {
+            "parameterType": "NUMBER_DOUBLE"
+          },
+          "pipelinechannel--project": {
+            "parameterType": "STRING"
+          },
+          "pipelinechannel--region": {
+            "parameterType": "STRING"
+          }
+        }
+      }
+    },
+    "comp-deploy-model": {
+      "executorLabel": "exec-deploy-model",
+      "inputDefinitions": {
+        "artifacts": {
+          "model_artifact": {
+            "artifactType": {
+              "schemaTitle": "system.Model",
+              "schemaVersion": "0.0.1"
+            }
+          }
+        },
+        "parameters": {
+          "deploy": {
+            "defaultValue": true,
+            "isOptional": true,
+            "parameterType": "BOOLEAN"
+          },
+          "endpoint_display_name": {
+            "defaultValue": "llm-endpoint",
+            "isOptional": true,
+            "parameterType": "STRING"
+          },
+          "project": {
+            "parameterType": "STRING"
+          },
+          "region": {
+            "parameterType": "STRING"
+          }
+        }
+      }
+    },
+    "comp-evaluate-llm": {
+      "executorLabel": "exec-evaluate-llm",
+      "inputDefinitions": {
+        "artifacts": {
+          "model_dir": {
+            "artifactType": {
+              "schemaTitle": "system.Model",
+              "schemaVersion": "0.0.1"
+            }
+          },
+          "preprocessed_data": {
+            "artifactType": {
+              "schemaTitle": "system.Dataset",
+              "schemaVersion": "0.0.1"
+            }
+          }
+        }
+      },
+      "outputDefinitions": {
+        "parameters": {
+          "Output": {
+            "parameterType": "NUMBER_DOUBLE"
+          }
+        }
+      }
+    },
+    "comp-fine-tune-llm": {
+      "executorLabel": "exec-fine-tune-llm",
+      "inputDefinitions": {
+        "artifacts": {
+          "preprocessed_data": {
+            "artifactType": {
+              "schemaTitle": "system.Dataset",
+              "schemaVersion": "0.0.1"
+            }
+          }
+        },
+        "parameters": {
+          "base_model": {
+            "defaultValue": "deepseek-ai/DeepSeek-V3-0324",
+            "isOptional": true,
+            "parameterType": "STRING"
+          },
+          "batch_size": {
+            "defaultValue": 1.0,
+            "isOptional": true,
+            "parameterType": "NUMBER_INTEGER"
+          },
+          "epochs": {
+            "defaultValue": 1.0,
+            "isOptional": true,
+            "parameterType": "NUMBER_INTEGER"
+          },
+          "grad_accum": {
+            "defaultValue": 16.0,
+            "isOptional": true,
+            "parameterType": "NUMBER_INTEGER"
+          },
+          "lr": {
+            "defaultValue": 0.0002,
+            "isOptional": true,
+            "parameterType": "NUMBER_DOUBLE"
+          },
+          "max_len": {
+            "defaultValue": 512.0,
+            "isOptional": true,
+            "parameterType": "NUMBER_INTEGER"
+          }
+        }
+      },
+      "outputDefinitions": {
+        "artifacts": {
+          "model_output": {
+            "artifactType": {
+              "schemaTitle": "system.Model",
+              "schemaVersion": "0.0.1"
+            }
+          }
+        }
+      }
+    },
+    "comp-preprocess-jsonl": {
+      "executorLabel": "exec-preprocess-jsonl",
+      "inputDefinitions": {
+        "parameters": {
+          "jsonl_path": {
+            "parameterType": "STRING"
+          }
+        }
+      },
+      "outputDefinitions": {
+        "artifacts": {
+          "preprocessed_output": {
+            "artifactType": {
+              "schemaTitle": "system.Dataset",
+              "schemaVersion": "0.0.1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "deploymentSpec": {
+    "executors": {
+      "exec-deploy-model": {
+        "container": {
+          "args": [
+            "--executor_input",
+            "{{$}}",
+            "--function_to_execute",
+            "deploy_model"
+          ],
+          "command": [
+            "sh",
+            "-c",
+            "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.13.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&  python3 -m pip install --quiet --no-warn-script-location 'google-cloud-aiplatform' && \"$0\" \"$@\"\n",
+            "sh",
+            "-ec",
+            "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef deploy_model(model_artifact: Input[Model],\n                 project: str,\n                 region: str,\n                 endpoint_display_name: str = \"llm-endpoint\",\n                 deploy: bool = True):\n    from google.cloud import aiplatform as aip\n    aip.init(project=project, location=region)\n\n    model = aip.Model.upload(\n        display_name=\"fine-tuned-llm\",\n        artifact_uri=model_artifact.path,\n        serving_container_image_uri=f\"us-docker.pkg.dev/{project}/llm-serving/transformers-serve:latest\",\n        serving_container_ports=[8008],\n        serving_container_predict_route=\"/predict\",\n        serving_container_health_route=\"/\"\n    )\n    if not deploy:\n        print(\"Model registered (not deployed).\")\n        return\n\n    endpoint = aip.Endpoint.create(display_name=endpoint_display_name)\n    model.deploy(endpoint=endpoint, machine_type=\"n1-standard-8\", accelerator_type=\"NVIDIA_TESLA_T4\", accelerator_count=1)\n    print(f\"Deployed to endpoint: {endpoint.resource_name}\")\n\n"
+          ],
+          "image": "python:3.10"
+        }
+      },
+      "exec-evaluate-llm": {
+        "container": {
+          "args": [
+            "--executor_input",
+            "{{$}}",
+            "--function_to_execute",
+            "evaluate_llm"
+          ],
+          "command": [
+            "sh",
+            "-c",
+            "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.13.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&  python3 -m pip install --quiet --no-warn-script-location 'datasets' 'transformers' 'evaluate' && \"$0\" \"$@\"\n",
+            "sh",
+            "-ec",
+            "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef evaluate_llm(\n    preprocessed_data: Input[Dataset],\n    model_dir: Input[Model]\n) -> float:\n    from datasets import load_from_disk\n    from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline\n    import evaluate\n\n    ds = load_from_disk(preprocessed_data.path)[\"test\"]\n    tok = AutoTokenizer.from_pretrained(model_dir.path)\n    mdl = AutoModelForCausalLM.from_pretrained(model_dir.path)\n    gen = pipeline(\"text-generation\", model=mdl, tokenizer=tok, device=0)\n\n    rouge = evaluate.load(\"rouge\")\n\n    preds, refs = [], []\n    sample = min(50, len(ds))\n    for ex in ds.select(range(sample)):\n        prompt = f\"### Instruction: {ex['instruction']}\\n### Input: {ex.get('input','')}\\n### Response:\"\n        out = gen(prompt, max_new_tokens=128, do_sample=False)[0][\"generated_text\"]\n        preds.append(out)\n        refs.append(ex[\"output\"])\n\n    res = rouge.compute(predictions=preds, references=refs)\n    print(\"Eval:\", res)\n    return float(res[\"rougeL\"])\n\n"
+          ],
+          "image": "huggingface/transformers-pytorch-gpu:latest"
+        }
+      },
+      "exec-fine-tune-llm": {
+        "container": {
+          "args": [
+            "--executor_input",
+            "{{$}}",
+            "--function_to_execute",
+            "fine_tune_llm"
+          ],
+          "command": [
+            "sh",
+            "-c",
+            "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.13.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&  python3 -m pip install --quiet --no-warn-script-location 'datasets' 'transformers' && \"$0\" \"$@\"\n",
+            "sh",
+            "-ec",
+            "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef fine_tune_llm(\n    preprocessed_data: Input[Dataset],\n    model_output: Output[Model],\n    base_model: str = \"deepseek-ai/DeepSeek-V3-0324\",\n    max_len: int = 512,\n    epochs: int = 1,\n    lr: float = 2e-4,\n    batch_size: int = 1,\n    grad_accum: int = 16,\n):\n    import torch\n    from datasets import load_from_disk\n    from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments\n    from peft import LoraConfig, get_peft_model\n\n    ds = load_from_disk(preprocessed_data.path)\n\n    tok = AutoTokenizer.from_pretrained(base_model, use_fast=True)\n    if tok.pad_token is None:\n        tok.pad_token = tok.eos_token\n\n    def pack(ex):\n        prompt = f\"\"\"\n        ### Instruction: {ex['instruction']}\\n\n        ### Input: {ex['input']}\\n\n        ### Output: {ex['output']}\n        \"\"\"\n        x = tok(prompt, truncation=True, padding=\"max_length\", max_length=max_len)\n        y = tok(ex[\"output\"], truncation=True, padding=\"max_length\", max_length=max_len)\n        x[\"labels\"] = y[\"input_ids\"]\n        return x\n\n    tds = ds[\"train\"].map(pack, remove_columns=ds[\"train\"].column_names)\n    vds = ds[\"test\"].map(pack, remove_columns=ds[\"test\"].column_names)\n\n    model = AutoModelForCausalLM.from_pretrained(\n        base_model, load_in_8bit=True, device_map=\"auto\"\n    )\n\n    peft_cfg = LoraConfig(\n        r=8, lora_alpha=32, target_modules=[\"q_proj\",\"v_proj\"],\n        lora_dropout=0.05, bias=\"none\", task_type=\"CAUSAL_LM\"\n    )\n    model = get_peft_model(model, peft_cfg)\n\n    args = TrainingArguments(\n        output_dir=model_output.path,\n        per_device_train_batch_size=batch_size,\n        gradient_accumulation_steps=grad_accum,\n        num_train_epochs=epochs,\n        learning_rate=lr,\n        logging_steps=10,\n        evaluation_strategy=\"steps\",\n        eval_steps=100,\n        save_strategy=\"epoch\",\n        fp16=torch.cuda.is_available(),\n        report_to=[],\n    )\n\n    trainer = Trainer(\n        model=model, args=args, train_dataset=tds, eval_dataset=vds\n    )\n    trainer.train()\n\n    trainer.save_model(model_output.path)\n    tok.save_pretrained(model_output.path)\n\n"
+          ],
+          "image": "huggingface/transformers-pytorch-gpu:latest"
+        }
+      },
+      "exec-preprocess-jsonl": {
+        "container": {
+          "args": [
+            "--executor_input",
+            "{{$}}",
+            "--function_to_execute",
+            "preprocess_jsonl"
+          ],
+          "command": [
+            "sh",
+            "-c",
+            "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.13.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&  python3 -m pip install --quiet --no-warn-script-location 'datasets' && \"$0\" \"$@\"\n",
+            "sh",
+            "-ec",
+            "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef preprocess_jsonl(jsonl_path: str, preprocessed_output: Output[Dataset]):\n    from datasets import load_dataset\n    ds = load_dataset(\"json\", data_files={\"train\": jsonl_path})[\"train\"]\n    # 90/10 split\n    split = ds.train_test_split(test_size=0.1, seed=42)\n    from datasets import DatasetDict\n    dd = DatasetDict({\"train\": split[\"train\"], \"test\": split[\"test\"]})\n    dd.save_to_disk(preprocessed_output.path)\n\n"
+          ],
+          "image": "huggingface/transformers-pytorch-gpu:latest"
+        }
+      }
+    }
+  },
+  "pipelineInfo": {
+    "description": "Preprocess JSONL, fine-tune LLM (LoRA), evaluate, and (optionally) deploy.",
+    "name": "llmops-finetune-jsonl"
+  },
+  "root": {
+    "dag": {
+      "tasks": {
+        "condition-1": {
+          "componentRef": {
+            "name": "comp-condition-1"
+          },
+          "dependentTasks": [
+            "evaluate-llm",
+            "fine-tune-llm"
+          ],
+          "inputs": {
+            "artifacts": {
+              "pipelinechannel--fine-tune-llm-model_output": {
+                "taskOutputArtifact": {
+                  "outputArtifactKey": "model_output",
+                  "producerTask": "fine-tune-llm"
+                }
+              }
+            },
+            "parameters": {
+              "pipelinechannel--deploy_threshold": {
+                "componentInputParameter": "deploy_threshold"
+              },
+              "pipelinechannel--evaluate-llm-Output": {
+                "taskOutputParameter": {
+                  "outputParameterKey": "Output",
+                  "producerTask": "evaluate-llm"
+                }
+              },
+              "pipelinechannel--project": {
+                "componentInputParameter": "project"
+              },
+              "pipelinechannel--region": {
+                "componentInputParameter": "region"
+              }
+            }
+          },
+          "taskInfo": {
+            "name": "condition-1"
+          },
+          "triggerPolicy": {
+            "condition": "inputs.parameter_values['pipelinechannel--evaluate-llm-Output'] >= inputs.parameter_values['pipelinechannel--deploy_threshold']"
+          }
+        },
+        "evaluate-llm": {
+          "cachingOptions": {
+            "enableCache": true
+          },
+          "componentRef": {
+            "name": "comp-evaluate-llm"
+          },
+          "dependentTasks": [
+            "fine-tune-llm",
+            "preprocess-jsonl"
+          ],
+          "inputs": {
+            "artifacts": {
+              "model_dir": {
+                "taskOutputArtifact": {
+                  "outputArtifactKey": "model_output",
+                  "producerTask": "fine-tune-llm"
+                }
+              },
+              "preprocessed_data": {
+                "taskOutputArtifact": {
+                  "outputArtifactKey": "preprocessed_output",
+                  "producerTask": "preprocess-jsonl"
+                }
+              }
+            }
+          },
+          "taskInfo": {
+            "name": "evaluate-llm"
+          }
+        },
+        "fine-tune-llm": {
+          "cachingOptions": {
+            "enableCache": true
+          },
+          "componentRef": {
+            "name": "comp-fine-tune-llm"
+          },
+          "dependentTasks": [
+            "preprocess-jsonl"
+          ],
+          "inputs": {
+            "artifacts": {
+              "preprocessed_data": {
+                "taskOutputArtifact": {
+                  "outputArtifactKey": "preprocessed_output",
+                  "producerTask": "preprocess-jsonl"
+                }
+              }
+            }
+          },
+          "taskInfo": {
+            "name": "fine-tune-llm"
+          }
+        },
+        "preprocess-jsonl": {
+          "cachingOptions": {
+            "enableCache": true
+          },
+          "componentRef": {
+            "name": "comp-preprocess-jsonl"
+          },
+          "inputs": {
+            "parameters": {
+              "jsonl_path": {
+                "componentInputParameter": "jsonl_path"
+              }
+            }
+          },
+          "taskInfo": {
+            "name": "preprocess-jsonl"
+          }
+        }
+      }
+    },
+    "inputDefinitions": {
+      "parameters": {
+        "deploy_threshold": {
+          "defaultValue": 0.25,
+          "isOptional": true,
+          "parameterType": "NUMBER_DOUBLE"
+        },
+        "jsonl_path": {
+          "parameterType": "STRING"
+        },
+        "pipeline_root": {
+          "parameterType": "STRING"
+        },
+        "project": {
+          "parameterType": "STRING"
+        },
+        "region": {
+          "parameterType": "STRING"
+        }
+      }
+    }
+  },
+  "schemaVersion": "2.1.0",
+  "sdkVersion": "kfp-2.13.0"
+}

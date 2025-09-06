@@ -30,3 +30,8 @@ dist/
 # OS Files
 .DS_Store
 Thumbs.db
+
+bin/
+lib/
+include/
+pyvenv.cfg

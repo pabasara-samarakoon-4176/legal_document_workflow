@@ -6,14 +6,15 @@ from llama_index.llms.openai import OpenAI
 from llama_index.utils.workflow import draw_all_possible_flows
 from llama_index.core.readers.file.base import SimpleDirectoryReader
 from llama_index.readers.file.markdown import MarkdownReader
+from llama_index.llms.huggingface import HuggingFaceLLM
+from llama_index.llms.huggingface_api import HuggingFaceInferenceAPI
 import json
 import logging
 import os
 from dotenv import load_dotenv
 import asyncio
 import re
-import ast
-import sys
+from rag_pipeline import search_clauses
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,6 +25,10 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     raise ValueError("Please set the OPENAI_API_KEY environment variable.")
+
+hf_token = os.getenv("HF_TOKEN")
+if not hf_token:
+    raise ValueError("Please set the HF_TOKEN environment variable.")
 
 class LegalStartEvent(StartEvent):
     """
@@ -227,7 +232,12 @@ class LegalDocumentWorkflow(Workflow):
         - Markdown-based reporting and clause manipulation
 
     """
-    llm = OpenAI(model="gpt-4o-mini-2024-07-18", api_key=api_key)
+    # llm = OpenAI(model="gpt-4o-mini-2024-07-18", api_key=api_key)
+    llm = HuggingFaceInferenceAPI(
+        model_name="deepseek-ai/DeepSeek-V3-0324",
+        token=hf_token,
+        provider="auto",
+    )
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
         super().__init__(**kwargs)
@@ -409,20 +419,43 @@ class LegalDocumentWorkflow(Workflow):
             progress_percent=35.0,
             document_id=ev.document_id
         ))
+        
+        # clause_recommendations = {}
+        # similarity_scores = {}
+        # source_documents = []
+        # knowledge_sources = ["Mock legal precident database"]
+
+        # for clause_name, clause_text in ev.clauses.items():
+        #     retrieved_example = f"This is a stronger version of the {clause_name.replace('_', ' ')} based on best practices."
+        #     clause_recommendations[clause_name] = retrieved_example
+        #     similarity_scores[clause_name] = 0.82
+        #     source_documents.append({
+        #         "title": "Legal Precedent",
+        #         "content": f"Example content for {clause_name}."
+        #     })
 
         clause_recommendations = {}
         similarity_scores = {}
         source_documents = []
-        knowledge_sources = ["Mock legal precident database"]
+        knowledge_sources = ["Legal Precedent Vector DB"]
 
         for clause_name, clause_text in ev.clauses.items():
-            retrieved_example = f"This is a stronger version of the {clause_name.replace('_', ' ')} based on best practices."
-            clause_recommendations[clause_name] = retrieved_example
-            similarity_scores[clause_name] = 0.82
-            source_documents.append({
-                "title": "Legal Precedent",
-                "content": f"Example content for {clause_name}."
-            })
+            retrieved_items = search_clauses(clause_text)
+            if retrieved_items:
+                top_item = retrieved_items[0]
+                clause_recommendations[clause_name] = top_item.get("text", "")
+                similarity_scores[clause_name] = top_item.get("similarity", 0.0)
+
+                for item in retrieved_items:
+                    source_documents.append({
+                        "title": item["title"],
+                        "section": item.get("section", ""),
+                        "content": item["text"],
+                        "source": item.get("source", "")
+                    })
+            else:
+                clause_recommendations[clause_name] = clause_text
+                similarity_scores[clause_name] = 0.0
 
         await ctx.store.set(f"updated_clauses_{ev.document_id}", clause_recommendations)
 
