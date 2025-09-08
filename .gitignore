@@ -36,3 +36,4 @@ lib/
 include/
 pyvenv.cfg
 model/
+audit_logs/

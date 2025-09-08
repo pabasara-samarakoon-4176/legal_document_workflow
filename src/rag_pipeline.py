@@ -19,7 +19,7 @@ if not openai_api_key:
 
 CHROMA_DB_PATH = "./clause_chroma_db"
 
-def load_clause_documents(path="ProseObjects-01/clauses.jsonl"):
+def load_clause_documents(path="/Users/pabasarasamarakoon/agent_document_workflow/legal_document_workflow/ProseObjects-01/clauses.jsonl"):
     documents = []
     with open(path, "r", encoding="utf-8") as f:
         for line in f:

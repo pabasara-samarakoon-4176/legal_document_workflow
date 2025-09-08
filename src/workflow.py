@@ -9,18 +9,12 @@ from llama_index.readers.file.markdown import MarkdownReader
 from llama_index.llms.huggingface import HuggingFaceLLM
 from llama_index.llms.huggingface_api import HuggingFaceInferenceAPI
 import json
-import logging
 import os
 from dotenv import load_dotenv
 import asyncio
 import re
 from rag_pipeline import search_clauses
 from google.cloud import aiplatform
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s"
-)
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -289,16 +283,15 @@ class LegalDocumentWorkflow(Workflow):
 
     """
 
-    llm = OpenAI(model="gpt-4o-mini-2024-07-18", api_key=api_key)
+    # llm = OpenAI(model="gpt-4o-mini-2024-07-18", api_key=api_key)
     # llm = HuggingFaceInferenceAPI(
     #     model_name="deepseek-ai/DeepSeek-V3-0324",
     #     token=hf_token,
     #     provider="auto",
     # )
-    # llm = get_llm_client(project=PROJECT_ID, region=REGION, endpoint_display_name=ENDPOINT_DISPLAY_NAME)
+    llm = get_llm_client(project=PROJECT_ID, region=REGION, endpoint_display_name=ENDPOINT_DISPLAY_NAME)
 
     def __init__(self, **kwargs):
-        self.logger = logging.getLogger(__name__)
         super().__init__(**kwargs)
 
     @step
@@ -308,7 +301,7 @@ class LegalDocumentWorkflow(Workflow):
         ev: LegalStartEvent
     ) -> DocumentIngestorEvent:
         """Ingests uploaded documents and extracts basic metadata."""
-        print("====================================================================================")
+        print("================================================================================================================================================================")
         ctx.write_event_to_stream(ProgressEvent(
             stage="ingestion",
             message="Ingesting legal documents...",
@@ -359,7 +352,7 @@ class LegalDocumentWorkflow(Workflow):
         ev: DocumentIngestorEvent
     ) -> ClassifierEvent:
         """Classifies document type and legal categories."""
-        print("====================================================================================")
+        print("================================================================================================================================================================")
         ctx.write_event_to_stream(ProgressEvent(
             stage="classification",
             message="Classification uploaded legal documents...",
@@ -413,7 +406,7 @@ class LegalDocumentWorkflow(Workflow):
         ev: ClassifierEvent
     ) -> ClauseExtractorEvent:
         """Extracts clauses and identifies missing sections."""
-        print("====================================================================================")
+        print("================================================================================================================================================================")
         ctx.write_event_to_stream(ProgressEvent(
             stage="extraction",
             message="Extracting clauses using LLM...",
@@ -471,27 +464,13 @@ class LegalDocumentWorkflow(Workflow):
         ev: ClauseExtractorEvent
     ) -> RAGEvent:
         """Retrieves external context and recommends clause improvements."""
-        print("====================================================================================")
+        print("================================================================================================================================================================")
         ctx.write_event_to_stream(ProgressEvent(
             stage="retrieval",
             message="Retrieving similar clauses from external knowledge sources...",
             progress_percent=35.0,
             document_id=ev.document_id
         ))
-        
-        # clause_recommendations = {}
-        # similarity_scores = {}
-        # source_documents = []
-        # knowledge_sources = ["Mock legal precident database"]
-
-        # for clause_name, clause_text in ev.clauses.items():
-        #     retrieved_example = f"This is a stronger version of the {clause_name.replace('_', ' ')} based on best practices."
-        #     clause_recommendations[clause_name] = retrieved_example
-        #     similarity_scores[clause_name] = 0.82
-        #     source_documents.append({
-        #         "title": "Legal Precedent",
-        #         "content": f"Example content for {clause_name}."
-        #     })
 
         clause_recommendations = {}
         similarity_scores = {}
@@ -538,7 +517,7 @@ class LegalDocumentWorkflow(Workflow):
 
         Returns per-clause risk scores, flagged issues, and a high-level compliance summary.
         """
-        print("====================================================================================")
+        print("================================================================================================================================================================")
         ctx.write_event_to_stream(ProgressEvent(
             stage="assessment",
             message="Assessing legal risk and compliance...",
@@ -618,7 +597,7 @@ class LegalDocumentWorkflow(Workflow):
         Requests human feedback on risk assessment results by summarizing key risks, 
         flagged clauses, and asking for clarification or validation.
         """
-        print("====================================================================================")
+        print("================================================================================================================================================================")
         ctx.write_event_to_stream(ProgressEvent(
             stage="validaition",
             message="Requesting human feedback on risk assessment validation...",
@@ -647,7 +626,7 @@ class LegalDocumentWorkflow(Workflow):
         Processes human feedback or proceeds directly to report generation.
         Feedback may lead to a re-assessment or report finalization.
         """
-        print("====================================================================================")
+        print("================================================================================================================================================================")
         ctx.write_event_to_stream(ProgressEvent(
             stage="feedback",
             message="Capturing feedback from user...",
@@ -698,7 +677,7 @@ class LegalDocumentWorkflow(Workflow):
         ev: ReportGeneratorEvent
     ) -> AuditLoggerEvent:
         """Generates the final legal analysis report."""
-        print("====================================================================================")
+        print("================================================================================================================================================================")
         ctx.write_event_to_stream(ProgressEvent(
             stage="generation",
             message="Generating final legal report...",
@@ -752,7 +731,7 @@ class LegalDocumentWorkflow(Workflow):
         ev: AuditLoggerEvent
     ) -> StopEvent:
         """Logs audit trail and completes the workflow."""
-        print("====================================================================================")
+        print("================================================================================================================================================================")
         ctx.write_event_to_stream(ProgressEvent(
             stage="logging",
             message="Logging audit trail...",
@@ -789,9 +768,9 @@ async def test_llm_output():
     print(parsed)
     
 async def main():
-    document_path = "input_documents/nda_sample.md"
+    document_path = "/Users/pabasarasamarakoon/agent_document_workflow/legal_document_workflow/input_documents/employeement.md"
     start_event = LegalStartEvent(document_path=document_path)
-    workflow = LegalDocumentWorkflow(timeout=60, verbose=True)
+    workflow = LegalDocumentWorkflow(timeout=600, verbose=True)
     draw_all_possible_flows(workflow, filename="legal_workflow_flow.html")
     handler = workflow.run(start_event=start_event)
     async for event in handler.stream_events():

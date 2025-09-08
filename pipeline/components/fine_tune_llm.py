@@ -68,24 +68,3 @@ def fine_tune_llm(
 
     trainer.save_model(model_output.path)
     tok.save_pretrained(model_output.path)
-
-    # # Load preprocessed dataset
-    # ds = load_from_disk(preprocessed_data.path)
-
-    # # Load tokenizer
-    # tok = AutoTokenizer.from_pretrained(base_model, use_fast=True)
-    # if tok.pad_token is None:
-    #     tok.pad_token = tok.eos_token
-
-    # # Prepare model
-    # model = AutoModelForCausalLM.from_pretrained(
-    #     base_model,
-    #     torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
-    #     device_map="auto" if torch.cuda.is_available() else None,
-    # )
-
-    # # For now just save the pretrained model
-    # model.save_pretrained(model_output.path)
-    # tok.save_pretrained(model_output.path)
-
-    # print(f"✅ Model and tokenizer saved to {model_output.path}")
