@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 import asyncio
 import re
 from rag_pipeline import search_clauses
+from google.cloud import aiplatform
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,6 +30,61 @@ if not api_key:
 hf_token = os.getenv("HF_TOKEN")
 if not hf_token:
     raise ValueError("Please set the HF_TOKEN environment variable.")
+
+PROJECT_ID = "legal-llmops-pipeline-1"
+REGION = "us-central1"
+ENDPOINT_DISPLAY_NAME = "llm-endpoint"
+
+def get_llm_client(project: str, region: str, endpoint_display_name: str):
+    """
+    Initializes and returns a client for a custom LLM deployed on a Vertex AI endpoint.
+
+    Args:
+        project (str): The Google Cloud project ID.
+        region (str): The region where the endpoint is located (e.g., "us-central1").
+        endpoint_display_name (str): The display name of the deployed endpoint.
+
+    Returns:
+        A callable function that can be used to make predictions on the LLM.
+    """
+    aiplatform.init(project=project, location=region)
+    
+    # Find the endpoint by its display name.
+    # The list() method returns a list of Endpoint objects that match the filter.
+    endpoints = aiplatform.Endpoint.list(filter=f'display_name="{endpoint_display_name}"')
+    
+    if not endpoints:
+        raise ValueError(f"No endpoint found with display name: {endpoint_display_name}")
+    
+    endpoint = endpoints[0]
+
+    def predict(prompt: str) -> str:
+        """
+        Sends a prediction request to the LLM endpoint.
+
+        The structure of the `instances` payload depends on the custom
+        serving container. This example assumes a simple JSON payload
+        with a "prompt" key, which is a common pattern for LLMs.
+
+        Args:
+            prompt (str): The text prompt for the LLM.
+
+        Returns:
+            str: The generated text response from the model.
+        """
+        try:
+            instances = [{"prompt": prompt}]
+
+            response = endpoint.predict(instances=instances)
+        
+            prediction = response.predictions[0]
+
+            return str(prediction)
+            
+        except Exception as e:
+            return f"An error occurred during prediction: {e}"
+
+    return predict
 
 class LegalStartEvent(StartEvent):
     """
@@ -232,12 +288,15 @@ class LegalDocumentWorkflow(Workflow):
         - Markdown-based reporting and clause manipulation
 
     """
-    # llm = OpenAI(model="gpt-4o-mini-2024-07-18", api_key=api_key)
-    llm = HuggingFaceInferenceAPI(
-        model_name="deepseek-ai/DeepSeek-V3-0324",
-        token=hf_token,
-        provider="auto",
-    )
+
+    llm = OpenAI(model="gpt-4o-mini-2024-07-18", api_key=api_key)
+    # llm = HuggingFaceInferenceAPI(
+    #     model_name="deepseek-ai/DeepSeek-V3-0324",
+    #     token=hf_token,
+    #     provider="auto",
+    # )
+    # llm = get_llm_client(project=PROJECT_ID, region=REGION, endpoint_display_name=ENDPOINT_DISPLAY_NAME)
+
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
         super().__init__(**kwargs)

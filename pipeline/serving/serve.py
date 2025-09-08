@@ -1,19 +1,30 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import os
 
-app = FastAPI()
-model_dir = os.environ.get("MODEL_DIR","/model")
-tok = AutoTokenizer.from_pretrained(model_dir)
-mdl = AutoModelForCausalLM.from_pretrained(model_dir)
-gen = pipeline("text-generation", model=mdl, tokenizer=tok, device=0)
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 
-class Req(BaseModel):
+device = "cpu"
+
+app = FastAPI()
+
+model_dir = os.environ.get("AIP_STORAGE_URI", "/model")
+model_dir = "/Users/pabasarasamarakoon/agent_document_workflow/legal_document_workflow/pipeline/model"
+tokenizer = AutoTokenizer.from_pretrained(model_dir)
+model = AutoModelForCausalLM.from_pretrained(model_dir)
+generator = pipeline("text-generation", model=model, tokenizer=tokenizer, device=device)  # CPU
+
+class Request(BaseModel):
     prompt: str
-    max_new_tokens: int = 128
+    max_new_tokens: int = 64
 
 @app.post("/predict")
-def predict(r: Req):
-    out = gen(r.prompt, max_new_tokens=r.max_new_tokens, do_sample=False)[0]["generated_text"]
-    return {"predictions":[out]}
+def predict(req: Request):
+    output = generator(req.prompt, max_new_tokens=req.max_new_tokens, do_sample=True)
+    return {"predictions": [output[0]["generated_text"]]}
+
+@app.get("/")
+def health_check():
+    return {"status": "healthy"}
