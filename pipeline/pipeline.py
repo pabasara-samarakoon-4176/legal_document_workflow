@@ -9,18 +9,28 @@ from components.deploy_model import deploy_model
     name="llmops-finetune-jsonl",
     description="Preprocess JSONL, fine-tune LLM (LoRA), evaluate, and (optionally) deploy."
 )
-def llmops_pipeline(project: str,
-                    region: str,
-                    pipeline_root: str,
-                    jsonl_path: str,
-                    deploy_threshold: float = 0.25):
+def llmops_pipeline(
+    project: str,
+    region: str,
+    jsonl_path: str,
+    deploy_threshold: float = 0.25
+    ):
     pre = preprocess_jsonl(jsonl_path=jsonl_path)
-    trn = fine_tune_llm(preprocessed_data=pre.outputs["preprocessed_output"])
-    score = evaluate_llm(preprocessed_data=pre.outputs["preprocessed_output"],
-                         model_dir=trn.outputs["model_output"])
+    trn = fine_tune_llm(
+        preprocessed_data=pre.outputs["preprocessed_output"],
+    )
+    score = evaluate_llm(
+        preprocessed_data=pre.outputs["preprocessed_output"], 
+        model_dir=trn.outputs["model_output"]
+    )
 
     with dsl.If(score.output >= deploy_threshold):
-        deploy_model(model_artifact=trn.outputs["model_output"],
-                     project=project, region=region, deploy=True)
+        deploy_model(
+            model_artifact=trn.outputs["model_output"],
+            project=project, region=region, deploy=True
+        )
 
-Compiler().compile(pipeline_func=llmops_pipeline, package_path="llmops_pipeline.json")
+Compiler().compile(
+    pipeline_func=llmops_pipeline, 
+    package_path="llmops_pipeline.json"
+)

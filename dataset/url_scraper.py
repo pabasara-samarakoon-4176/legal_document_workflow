@@ -11,8 +11,8 @@ from llama_index.llms.openai import OpenAI
 
 
 urls = [
-    "https://www.sec.gov/Archives/edgar/data/886835/000119312521271278/d221041dex101.htm",
-    "https://www.sec.gov/Archives/edgar/data/1579214/000095017024025067/eex-ex10_43.htm",
+    "https://www.sec.gov/Archives/edgar/data/868780/000156459022005966/dorm-ex1016_838.htm",
+    "https://www.sec.gov/Archives/edgar/data/797465/000143774924019392/ex_684281.htm",
     "https://www.sec.gov/Archives/edgar/data/1604643/000160464323000046/vincentgrieco-evoquaxaremp.htm",
     "https://www.sec.gov/Archives/edgar/data/878726/000110465921005020/tm213516d1_ex10-1.htm",
     "https://www.sec.gov/Archives/edgar/data/1898496/000141057823000254/gety-20221231xex10d15.htm",
@@ -34,87 +34,90 @@ if not api_key:
 
 
 llm = OpenAI(model="gpt-4o-mini-2024-07-18", api_key=api_key)
+response = llm.complete("Say this is a test")
+print(response)
 
-def fetch_text_from_url(url: str) -> str:
-    headers = {"User-Agent": "LegalDocScraper/1.0 (pabasara@example.com)"}
-    resp = requests.get(url, headers=headers)
-    resp.raise_for_status()
+# def fetch_text_from_url(url: str) -> str:
+#     headers = {"User-Agent": "LegalDocScraper/1.0 (pabasara@example.com)"}
+#     resp = requests.get(url, headers=headers)
+#     resp.raise_for_status()
 
-    soup = BeautifulSoup(resp.text, "html.parser")
-    # get only visible text
-    for tag in soup(["script", "style", "table"]):
-        tag.decompose()
-    text = soup.get_text(separator=" ", strip=True)
+#     soup = BeautifulSoup(resp.text, "html.parser")
+#     # get only visible text
+#     for tag in soup(["script", "style", "table"]):
+#         tag.decompose()
+#     text = soup.get_text(separator=" ", strip=True)
 
-    words = text.split()
-    return " ".join(words[:500])  # first 500 words
+#     words = text.split()
+#     return " ".join(words[:500])  # first 500 words
 
-INPUT_FILE = "legal_classification_dataset.jsonl"
-OUTPUT_FILE = "clause_extraction_dataset.jsonl"
+# OUTPUT_FILE_1 = "clause_extraction_dataset.jsonl"
+# OUTPUT_FILE_2 = "legal_classification_dataset.jsonl"
 
-dataset = []
-with open(INPUT_FILE, "r", encoding="utf-8") as f:
-    for line in f:
-        dataset.append(json.loads(line))
+# dataset = []
+# with open(INPUT_FILE, "r", encoding="utf-8") as f:
+#     for line in f:
+#         dataset.append(json.loads(line))
 
-output_dataset = []
+# output_dataset = []
 
-for entry in tqdm(dataset):
-    try:
-        doc_text = entry["input"]
+# for entry in tqdm(dataset):
+#     try:
+#         doc_text = entry["input"]
 
-        extract_prompt = f"""
-        You are a legal clause extraction assistant.
+#         extract_prompt = f"""
+#         You are a legal clause extraction assistant.
 
-        Task: Given the following legal document text, extract key clauses and identify missing important clauses
-        such as termination, indemnity, or dispute resolution.
+#         Task: Given the following legal document text, extract key clauses and identify missing important clauses
+#         such as termination, indemnity, or dispute resolution.
 
-        Document:
-        \"\"\"
-        {doc_text}
-        \"\"\"
+#         Document:
+#         \"\"\"
+#         {doc_text}
+#         \"\"\"
 
-        Respond ONLY in JSON with the following format:
-        {{
-          "clauses": {{
-             "ClauseName": "Clause text..."
-          }},
-          "missing_clauses": ["..."]
-        }}
-        """
+#         Respond ONLY in JSON with the following format:
+#         {{
+#           "clauses": {{
+#              "ClauseName": "Clause text..."
+#           }},
+#           "missing_clauses": ["..."]
+#         }}
+#         """
 
-        response = llm.complete(extract_prompt)
+#         response = llm.complete(extract_prompt)
 
-        # Some LLMs return objects, ensure string
-        response_text = str(response)
+#         # Some LLMs return objects, ensure string
+#         response_text = str(response)
 
-        # Clean accidental markdown fences or extra text
-        cleaned = (
-            response_text.replace("```json", "")
-                         .replace("```", "")
-                         .strip()
-        )
+#         # Clean accidental markdown fences or extra text
+#         cleaned = (
+#             response_text.replace("```json", "")
+#                          .replace("```", "")
+#                          .strip()
+#         )
 
-        try:
-            output_json = json.loads(cleaned)
-        except Exception as e:
-            print(f"[WARN] Could not parse JSON: {e}\nRaw output:\n{response_text[:300]}")
-            output_json = {"clauses": {}, "missing_clauses": []}
+#         try:
+#             output_json = json.loads(cleaned)
+#         except Exception as e:
+#             print(f"[WARN] Could not parse JSON: {e}\nRaw output:\n{response_text[:300]}")
+#             output_json = {"clauses": {}, "missing_clauses": []}
 
-        output_dataset.append({
-            "instruction": "Extract clauses and identify missing ones.",
-            "input": doc_text,
-            "output": output_json
-        })
+#         output_dataset.append({
+#             "instruction": "Extract clauses and identify missing ones.",
+#             "input": doc_text,
+#             "output": output_json
+#         })
 
-    except Exception as e:
-        print(f"[ERROR] Failed: {e}")
+#     except Exception as e:
+#         print(f"[ERROR] Failed: {e}")
 
-# ------------------------------
-# Save as JSONL
-# ------------------------------
-with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-    for entry in output_dataset:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+# # ------------------------------
+# # Save as JSONL
+# # ------------------------------
+# with open(OUTPUT_FILE_1, "w", encoding="utf-8") as f:
+#     for entry in output_dataset:
+#         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-print(f"✅ Saved {len(output_dataset)} samples into {OUTPUT_FILE}")
+# print(f"✅ Saved {len(output_dataset)} samples into {OUTPUT_FILE_1}")
+

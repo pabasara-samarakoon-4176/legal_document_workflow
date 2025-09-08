@@ -35,3 +35,4 @@ bin/
 lib/
 include/
 pyvenv.cfg
+model/

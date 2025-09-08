@@ -14,8 +14,8 @@ def deploy_model(model_artifact: Input[Model],
 
     model = aip.Model.upload(
         display_name="fine-tuned-llm",
-        artifact_uri=model_artifact.path,
-        serving_container_image_uri=f"us-docker.pkg.dev/{project}/llm-serving/transformers-serve:latest",
+        artifact_uri=model_artifact.uri,
+        serving_container_image_uri=f"us-central1-docker.pkg.dev/{project}/llmops-repo/serve:latest",
         serving_container_ports=[8008],
         serving_container_predict_route="/predict",
         serving_container_health_route="/"
